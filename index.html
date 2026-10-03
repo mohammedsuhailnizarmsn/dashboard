@@ -1,29 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Secure access</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="login.css">
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=/login">
+  <title>Redirecting to login</title>
 </head>
 <body>
-  <div id="loginScreen">
-    <div class="login-card">
-      <h1>Secure access</h1>
-      <div class="sub">This dashboard is protected. Enter the password to continue.</div>
-      <form id="loginForm" novalidate>
-        <label>Password
-          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Enter password" required>
-        </label>
-        <button class="btn" type="submit">Log in</button>
-        <p id="loginError" role="alert" aria-live="polite"></p>
-      </form>
-    </div>
-  </div>
-
-  <script src="login.js"></script>
+  <script>
+    window.location.replace('/login');
+  </script>
 </body>
 </html>

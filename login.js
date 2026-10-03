@@ -31,7 +31,7 @@ function isAuthenticated() {
 }
 
 function redirectToDashboard() {
-  window.location.href = 'dashboard.html';
+  window.location.href = '/dashboard';
 }
 
 if (isAuthenticated()) {

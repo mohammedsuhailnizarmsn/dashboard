@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSV & Excel analytics dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../dashboard.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div id="appShell">
+<header>
+  <div><h1>Analytics Dashboard</h1><div class="sub">Drop a CSV or Excel file for an instant dashboard.</div></div>
+  <nav class="row"><button class="tab active" id="tDash">Dashboard</button><button class="tab" id="tFiles">Saved files</button>
+  <button class="btn alt hide" id="settingsBtn">Settings</button>
+  <button class="btn alt" id="theme" aria-label="Toggle dark mode">Theme</button>
+  <button class="btn alt" id="logoutBtn" type="button">Log out</button></nav>
+</header>
+<main>
+  <div id="tabDash">
+  <section id="drop">
+    <div class="big">Drop a CSV or Excel file here</div>
+    <p class="sub">Supports .csv, .tsv, .xlsx, .xls</p>
+    <div class="row" style="justify-content:center">
+      <button class="btn" id="pick">Choose file</button>
+    </div>
+    <p class="sub" style="margin:16px 0 0"><label><input type="checkbox" id="autosave" checked> Also save uploaded files</label></p>
+    <input type="file" id="file" accept=".csv,.tsv,.xlsx,.xls,.xlsm" class="hide">
+    <div id="err" role="alert"></div>
+  </section>
+
+  <section id="dash" class="hide">
+    <div class="row bar">
+      <div><b id="fname"></b> <span class="sub" id="fmeta"></span> <span class="sub noexp" id="saveStatus"></span> <button class="btn alt sm hide noexp" id="saveBtn">Save to repo</button></div>
+      <div class="row noexp">
+        <button class="btn" id="expPdf">Download PDF</button>
+        <button class="btn alt" id="expJpg">Download JPG</button>
+        <label class="sub hide" id="shwrap">Sheet <select id="sheet"></select></label>
+        <button class="btn alt" id="reset">Load another file</button>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid">
+      <div class="card wide">
+        <h2>Chart builder</h2>
+        <div class="ctl">
+          <label>Group by<select id="bx"></select></label>
+          <label>Measure<select id="by"></select></label>
+          <label>Aggregate<select id="bag"><option value="sum">Sum</option><option value="avg">Average</option><option value="count">Count</option><option value="min">Min</option><option value="max">Max</option></select></label>
+          <label>Chart<select id="bt"><option value="bar">Bar</option><option value="line">Line</option><option value="doughnut">Doughnut</option></select></label>
+        </div>
+        <div class="cv"><canvas id="c1"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Distribution</h2>
+        <div class="ctl"><label>Numeric column<select id="hx"></select></label></div>
+        <div class="cv"><canvas id="c2"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Category breakdown</h2>
+        <div class="ctl"><label>Category column<select id="cx"></select></label></div>
+        <div class="cv"><canvas id="c3"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Relationship</h2>
+        <div class="ctl"><label>X<select id="sx"></select></label><label>Y<select id="sy"></select></label></div>
+        <div class="cv"><canvas id="c4"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Correlation with <span id="corrLabel"></span></h2>
+        <div class="ctl"><label>Compare against<select id="corrSel"></select></label></div>
+        <div class="cv"><canvas id="c5"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <h2>Column profile</h2>
+      <div class="scroll"><table id="prof"></table></div>
+    </div>
+    <div class="card noexp">
+      <div class="row bar" style="margin-bottom:8px"><h2 style="margin:0">Data</h2><input type="search" id="q" placeholder="Search rows"></div>
+      <div class="scroll"><table id="tbl"></table></div>
+      <div class="pg"><span id="pinfo"></span><button class="btn alt" id="prev">Previous</button><button class="btn alt" id="next">Next</button></div>
+    </div>
+  </section>
+  </div>
+  <section id="files" class="hide">
+    <div class="card">
+      <div class="row bar" style="margin-bottom:8px"><div><h2 style="margin:0">Saved files</h2><div class="sub" id="repoLabel"></div></div><button class="btn alt" id="refresh">Refresh</button></div>
+      <div id="flist" class="scroll"></div>
+    </div>
+  </section>
+</main>
+<dialog id="dlg">
+  <h2>Repository settings</h2>
+  <p class="sub">Saved files are committed to <code>data/</code> in this repo through the GitHub API. Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> limited to this one repo with <b>Contents: Read and write</b>. It is stored only in this browser. Reading saved files needs no token if the repo is public.</p>
+  <label>Owner<input id="gOwner" autocomplete="off"></label>
+  <label>Repository<input id="gRepo" autocomplete="off"></label>
+  <label>Branch<input id="gBranch" autocomplete="off"></label>
+  <label>Token<input id="gToken" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+  <p class="sub warn">If the repo is public, anyone can read the files you save.</p>
+  <div class="row" style="justify-content:flex-end"><button class="btn alt" id="gCancel">Cancel</button><button class="btn" id="gSave">Save settings</button></div>
+</dialog>
+
+<script src="../dashboard.js"></script>
+</div>
+</body>
+</html>
