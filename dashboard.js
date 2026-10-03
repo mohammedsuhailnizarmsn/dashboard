@@ -347,12 +347,24 @@ if (!readAuthState()) {
     S.page = 0;
     table();
   };
+  function updateThemeButton() {
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme:dark)').matches;
+    const btn = $('#theme');
+    btn.textContent = dark ? '☀' : '☾';
+    btn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+    btn.title = dark ? 'Switch to light theme' : 'Switch to dark theme';
+  }
+
   $('#theme').onclick = () => {
     const r = document.documentElement;
     const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme:dark)').matches;
     r.dataset.theme = dark ? 'light' : 'dark';
+    updateThemeButton();
     if (S.rows.length && !$('#dash').classList.contains('hide')) drawAll();
   };
+
+  updateThemeButton();
 
   const CFG_KEY = 'sheetlens_cfg';
   function cfg() {
