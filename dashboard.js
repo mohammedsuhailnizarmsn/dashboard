@@ -464,13 +464,37 @@ if (!readAuthState()) {
     if (b.dataset.a === 'open') return openFromRepo(n);
     if (!cfg().token) return alert('Deleting needs a GitHub token configured on this device.');
     if (!confirm(`Delete ${n} from the repo? It stays in git history.`)) return;
+
+    const row = b.closest('tr');
+    if (row) row.remove();
+    if (S.name === n) {
+      $('#dash').classList.add('hide');
+      $('#drop').classList.remove('hide');
+      $('#file').value = '';
+      S.wb = null;
+      S.name = '';
+      S.rows = [];
+      S.cols = [];
+      $('#fname').textContent = '';
+      $('#saveStatus').textContent = '';
+      $('#fmeta').textContent = '';
+      $('#tbl').innerHTML = '';
+      $('#prof').innerHTML = '';
+      $('#kpis').innerHTML = '';
+    }
+
     b.disabled = true;
     try {
       await gh(fpath(n), { method: 'DELETE', body: { message: 'Delete ' + n, sha: b.dataset.sha, branch: cfg().branch } });
+      await listFiles();
     } catch (x) {
       alert('Delete failed: ' + x.message);
+      if (row) {
+        const current = $('#flist').querySelector('table');
+        if (current) current.appendChild(row);
+      }
+      await listFiles();
     }
-    listFiles();
   };
 
   $('#tDash').onclick = () => showTab('dash');
