@@ -17,6 +17,15 @@
 :root[data-theme=dark]{--bg:#0f141a;--panel:#171e27;--ink:#e8edf3;--muted:#93a0b0;--line:#2a3441;--accent:#3fc1c9;--accent-ink:#06282b;--warn:#f0a35e}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Schibsted Grotesk",system-ui,sans-serif}
+#appShell.hide,#loginScreen.hide{display:none!important}
+#loginScreen{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#eaf8f9 0%,var(--bg) 42%,#e9eef3 100%)}
+.login-card{width:min(100%,420px);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;box-shadow:0 18px 40px rgba(11,127,134,.09)}
+.login-card h1{margin:0 0 8px;font-size:28px;letter-spacing:-.02em}
+.login-card form{display:flex;flex-direction:column;gap:12px;margin-top:18px}
+.login-card label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.login-card input{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--ink)}
+.login-card .btn{width:100%;padding:10px 14px}
+#loginError{min-height:20px;margin:0;color:var(--warn);font-size:13px}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 28px;border-bottom:1px solid var(--line);background:var(--panel)}
 h1{font-size:20px;margin:0;letter-spacing:-.01em}
 h2{font-size:15px;margin:0 0 10px}
@@ -67,11 +76,26 @@ dialog input{background:var(--bg);border:1px solid var(--line);border-radius:6px
 </style>
 </head>
 <body>
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>Secure access</h1>
+    <div class="sub">This dashboard is protected. Enter the password to continue.</div>
+    <form id="loginForm" novalidate>
+      <label>Password
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Enter password" required>
+      </label>
+      <button class="btn" type="submit">Log in</button>
+      <p id="loginError" role="alert" aria-live="polite"></p>
+    </form>
+  </div>
+</div>
+<div id="appShell" class="hide">
 <header>
   <div><h1>Analytics Dashboard</h1><div class="sub">Drop a CSV or Excel file for an instant dashboard.</div></div>
   <nav class="row"><button class="tab active" id="tDash">Dashboard</button><button class="tab" id="tFiles">Saved files</button>
   <button class="btn alt hide" id="settingsBtn">Settings</button>
-  <button class="btn alt" id="theme" aria-label="Toggle dark mode">Theme</button></nav>
+  <button class="btn alt" id="theme" aria-label="Toggle dark mode">Theme</button>
+  <button class="btn alt" id="logoutBtn" type="button">Log out</button></nav>
 </header>
 <main>
   <div id="tabDash">
@@ -161,8 +185,37 @@ dialog input{background:var(--bg);border:1px solid var(--line);border-radius:6px
 <script>
 const $=s=>document.querySelector(s);
 const PAL=['#0b7f86','#e0892b','#5b6fd6','#c4465b','#6aa84f','#9b6dc9','#2f9fd0','#8a8f98'];
+const REQUIRED_PASSWORD='AltDshb543!';
+const AUTH_KEY='csv_dashboard_auth';
 const S={rows:[],cols:[],wb:null,name:'',view:[],page:0,sort:null};
 const charts={};
+function setAccess(isLoggedIn){
+  const ok=!!isLoggedIn && sessionStorage.getItem(AUTH_KEY)==='1';
+  $('#loginScreen').classList.toggle('hide',ok);
+  $('#appShell').classList.toggle('hide',!ok);
+  if(ok){showTab('dash');}
+}
+$('#loginForm').onsubmit=e=>{
+  e.preventDefault();
+  const pw=$('#loginPassword').value;
+  if(pw===REQUIRED_PASSWORD){
+    sessionStorage.setItem(AUTH_KEY,'1');
+    $('#loginError').textContent='';
+    $('#loginPassword').value='';
+    setAccess(true);
+  }else{
+    $('#loginError').textContent='Incorrect password. Please try again.';
+    $('#loginPassword').value='';
+    $('#loginPassword').focus();
+  }
+};
+$('#logoutBtn').onclick=()=>{
+  sessionStorage.removeItem(AUTH_KEY);
+  $('#loginPassword').value='';
+  $('#loginError').textContent='';
+  setAccess(false);
+};
+if(sessionStorage.getItem(AUTH_KEY)==='1'){setAccess(true);}else{setAccess(false);}
 const fmt=n=>n==null||isNaN(n)?'–':Math.abs(n)>=1e4?new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:2}).format(n):new Intl.NumberFormat('en',{maximumFractionDigits:2}).format(n);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const isNil=v=>v===null||v===undefined||v===''||(typeof v==='number'&&isNaN(v));
