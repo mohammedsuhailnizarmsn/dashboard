@@ -31,7 +31,7 @@ function isAuthenticated() {
 }
 
 function redirectToDashboard() {
-  window.location.href = '/dashboard';
+  window.location.href = '../dashboard/';
 }
 
 async function base64ToBytes(value) {
@@ -74,8 +74,8 @@ async function decryptSecretPayload(rawPayload, passphrase) {
 async function loadRequiredPassword() {
   try {
     const [secretResponse, keyResponse] = await Promise.all([
-      fetch('/secret.txt', { cache: 'no-store' }),
-      fetch('/key.txt', { cache: 'no-store' })
+      fetch('../secret.txt', { cache: 'no-store' }),
+      fetch('../key.txt', { cache: 'no-store' })
     ]);
 
     if (!secretResponse.ok || !keyResponse.ok) {

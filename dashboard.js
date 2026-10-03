@@ -22,7 +22,7 @@ function clearAuthState() {
 }
 
 if (!readAuthState()) {
-  window.location.href = '/login';
+  window.location.href = '../login/';
 } else {
   const $ = (s) => document.querySelector(s);
   const PAL = ['#0b7f86', '#e0892b', '#5b6fd6', '#c4465b', '#6aa84f', '#9b6dc9', '#2f9fd0', '#8a8f98'];
@@ -31,7 +31,7 @@ if (!readAuthState()) {
 
   $('#logoutBtn').onclick = () => {
     clearAuthState();
-    window.location.href = '/login';
+    window.location.href = '../login/';
   };
 
   const fmt = (n) => n == null || isNaN(n) ? '–' : Math.abs(n) >= 1e4 ? new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 }).format(n) : new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(n);
