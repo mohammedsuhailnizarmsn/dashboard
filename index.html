@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sheetlens – CSV & Excel analytics dashboard</title>
+<title>CSV & Excel Analytics Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -52,14 +52,25 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 .miss{display:inline-block;height:6px;background:var(--warn);border-radius:3px;vertical-align:middle;margin-right:6px}
 #err{color:var(--warn);margin-top:12px}
 .hide{display:none!important}
+.tab{background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;padding:8px 4px;margin-right:14px;cursor:pointer;color:var(--muted);font-weight:500}
+.tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+.warn{color:var(--warn)}
+.btn.sm{padding:4px 10px;font-size:13px}.btn.del{color:var(--warn);border-color:var(--warn)}
+dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;max-width:460px;width:92%}
+dialog::backdrop{background:#0008}
+dialog label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted);margin-bottom:10px}
+dialog input{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 8px;color:var(--ink)}
 </style>
 </head>
 <body>
 <header>
-  <div><h1>Sheetlens</h1><div class="sub">Drop a CSV or Excel file and get an instant dashboard. Data stays in your browser.</div></div>
-  <button class="btn alt" id="theme" aria-label="Toggle dark mode">Toggle theme</button>
+  <div><h1>Sheetlens</h1><div class="sub">Drop a CSV or Excel file for an instant dashboard. Files stay in your browser unless you save them to your repo.</div></div>
+  <nav class="row"><button class="tab active" id="tDash">Dashboard</button><button class="tab" id="tFiles">Saved files</button>
+  <button class="btn alt" id="settingsBtn">Settings</button>
+  <button class="btn alt" id="theme" aria-label="Toggle dark mode">Theme</button></nav>
 </header>
 <main>
+  <div id="tabDash">
   <section id="drop">
     <div class="big">Drop a CSV or Excel file here</div>
     <p class="sub">Supports .csv, .tsv, .xlsx, .xls</p>
@@ -67,13 +78,14 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
       <button class="btn" id="pick">Choose file</button>
       <button class="btn alt" id="sample">Try sample data</button>
     </div>
+    <p class="sub" style="margin:16px 0 0"><label><input type="checkbox" id="autosave" checked> Also save uploaded files to this repo's <code>data/</code> folder</label></p>
     <input type="file" id="file" accept=".csv,.tsv,.xlsx,.xls,.xlsm" class="hide">
     <div id="err" role="alert"></div>
   </section>
 
   <section id="dash" class="hide">
     <div class="row bar">
-      <div><b id="fname"></b> <span class="sub" id="fmeta"></span></div>
+      <div><b id="fname"></b> <span class="sub" id="fmeta"></span> <span class="sub" id="saveStatus"></span> <button class="btn alt sm hide" id="saveBtn">Save to repo</button></div>
       <div class="row">
         <label class="sub hide" id="shwrap">Sheet <select id="sheet"></select></label>
         <button class="btn alt" id="reset">Load another file</button>
@@ -122,7 +134,24 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
       <div class="pg"><span id="pinfo"></span><button class="btn alt" id="prev">Previous</button><button class="btn alt" id="next">Next</button></div>
     </div>
   </section>
+  </div>
+  <section id="files" class="hide">
+    <div class="card">
+      <div class="row bar" style="margin-bottom:8px"><div><h2 style="margin:0">Saved files</h2><div class="sub" id="repoLabel"></div></div><button class="btn alt" id="refresh">Refresh</button></div>
+      <div id="flist" class="scroll"></div>
+    </div>
+  </section>
 </main>
+<dialog id="dlg">
+  <h2>Repository settings</h2>
+  <p class="sub">Saved files are committed to <code>data/</code> in this repo through the GitHub API. Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> limited to this one repo with <b>Contents: Read and write</b>. It is stored only in this browser. Reading saved files needs no token if the repo is public.</p>
+  <label>Owner<input id="gOwner" autocomplete="off"></label>
+  <label>Repository<input id="gRepo" autocomplete="off"></label>
+  <label>Branch<input id="gBranch" autocomplete="off"></label>
+  <label>Token<input id="gToken" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+  <p class="sub warn">If the repo is public, anyone can read the files you save.</p>
+  <div class="row" style="justify-content:flex-end"><button class="btn alt" id="gCancel">Cancel</button><button class="btn" id="gSave">Save settings</button></div>
+</dialog>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -139,7 +168,7 @@ const toNum=v=>typeof v==='number'?v:parseFloat(String(v).trim().replace(/[,$€
 function load(file){
   $('#err').textContent='';
   const r=new FileReader();
-  r.onload=e=>{try{S.wb=XLSX.read(e.target.result,{type:'array',cellDates:true});S.name=file.name;openSheet(S.wb.SheetNames[0]);}
+  r.onload=e=>{try{S.wb=XLSX.read(e.target.result,{type:'array',cellDates:true});S.name=file.name;S.buf=e.target.result;S.src='upload';openSheet(S.wb.SheetNames[0]);afterLoad();}
     catch(x){$('#err').textContent='Could not read this file. Check that it is a valid CSV or Excel file.';}};
   r.readAsArrayBuffer(file);
 }
@@ -288,6 +317,80 @@ $('#tbl').onclick=e=>{const th=e.target.closest('th.s');if(!th)return;const c=th
   S.view=[...S.view].sort((a,b)=>{const x=a[c],y=b[c];if(x==null)return 1;if(y==null)return -1;return(x>y?1:x<y?-1:0)*d;});S.page=0;table();};
 $('#theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark';if(S.rows.length&&!$('#dash').classList.contains('hide'))drawAll();};
 
+/* ---------- GitHub repo storage ---------- */
+const CFG_KEY='sheetlens_cfg';
+function cfg(){let c={};try{c=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');}catch(e){}
+  const h=location.hostname;
+  if(!c.owner&&h.endsWith('.github.io')){c.owner=h.split('.')[0];c.repo=c.repo||location.pathname.split('/')[1]||'';}
+  c.branch=c.branch||'main';return c;}
+async function gh(path,o={}){
+  const c=cfg();if(!c.owner||!c.repo)throw new Error('Set your repository in Settings first.');
+  const h={Accept:o.raw?'application/vnd.github.raw+json':'application/vnd.github+json'};
+  if(c.token)h.Authorization='Bearer '+c.token;
+  const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/${path}${o.ref?'?ref='+encodeURIComponent(c.branch):''}`,{method:o.method||'GET',headers:h,body:o.body?JSON.stringify(o.body):undefined});
+  if(!r.ok){let m='Request failed ('+r.status+')';try{m=(await r.json()).message||m;}catch(e){}const e=new Error(m);e.status=r.status;throw e;}
+  return o.raw?r.arrayBuffer():r.json();}
+function b64(buf){const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);}
+const fpath=n=>'data/'+encodeURIComponent(n);
+async function saveToRepo(name,buf){
+  const c=cfg();let sha;
+  try{sha=(await gh(fpath(name),{ref:1})).sha;}catch(e){if(e.status!==404)throw e;}
+  await gh(fpath(name),{method:'PUT',body:{message:(sha?'Update ':'Add ')+name,content:b64(buf),branch:c.branch,sha}});
+}
+async function doSave(){
+  const st=$('#saveStatus');
+  if(!cfg().token){st.textContent='Not saved: add a GitHub token in Settings.';return;}
+  st.textContent='Saving to repo…';
+  try{await saveToRepo(S.name,S.buf);st.textContent='Saved to data/'+S.name;}
+  catch(e){st.textContent='Save failed: '+e.message;}
+}
+function afterLoad(){
+  $('#saveBtn').classList.toggle('hide',S.src!=='upload');
+  $('#saveStatus').textContent=S.src==='repo'?'· loaded from data/':'';
+  if(S.src==='upload'&&$('#autosave').checked)doSave();
+}
+function showTab(t){
+  $('#tabDash').classList.toggle('hide',t!=='dash');$('#files').classList.toggle('hide',t!=='files');
+  $('#tDash').classList.toggle('active',t==='dash');$('#tFiles').classList.toggle('active',t==='files');
+  if(t==='files')listFiles();
+}
+async function listFiles(){
+  const c=cfg(),box=$('#flist');
+  $('#repoLabel').textContent=c.owner&&c.repo?`${c.owner}/${c.repo} · ${c.branch} · data/`:'No repository configured';
+  box.innerHTML='<p class="sub">Loading…</p>';
+  try{
+    let items=[];try{items=await gh('data',{ref:1});}catch(e){if(e.status!==404)throw e;}
+    items=items.filter(i=>i.type==='file'&&/\.(csv|tsv|xlsx|xls|xlsm)$/i.test(i.name));
+    box.innerHTML=items.length?'<table><tr><th>File</th><th>Size</th><th></th></tr>'+items.map(i=>`<tr><td>${esc(i.name)}</td><td class="n">${(i.size/1024).toFixed(1)} KB</td><td style="text-align:right"><button class="btn sm" data-a="open" data-n="${esc(i.name)}">Open</button> <button class="btn alt sm del" data-a="del" data-n="${esc(i.name)}" data-sha="${i.sha}">Delete</button></td></tr>`).join('')+'</table>'
+      :'<p class="sub">No saved files yet. Upload a file on the Dashboard tab with saving turned on.</p>';
+  }catch(e){box.innerHTML=`<p class="warn">${esc(e.message)}</p>`;}
+}
+async function openFromRepo(name){
+  try{
+    const buf=await gh(fpath(name),{raw:1,ref:1});
+    S.wb=XLSX.read(buf,{type:'array',cellDates:true});S.name=name;S.src='repo';
+    showTab('dash');openSheet(S.wb.SheetNames[0]);afterLoad();
+  }catch(e){$('#flist').insertAdjacentHTML('afterbegin',`<p class="warn">Could not open ${esc(name)}: ${esc(e.message)}</p>`);}
+}
+$('#flist').onclick=async e=>{
+  const b=e.target.closest('button');if(!b)return;const n=b.dataset.n;
+  if(b.dataset.a==='open')return openFromRepo(n);
+  if(!cfg().token)return alert('Add a GitHub token in Settings to delete files.');
+  if(!confirm(`Delete ${n} from the repo? It stays in git history.`))return;
+  b.disabled=true;
+  try{await gh(fpath(n),{method:'DELETE',body:{message:'Delete '+n,sha:b.dataset.sha,branch:cfg().branch}});}
+  catch(x){alert('Delete failed: '+x.message);}
+  listFiles();
+};
+$('#tDash').onclick=()=>showTab('dash');$('#tFiles').onclick=()=>showTab('files');$('#refresh').onclick=listFiles;
+$('#saveBtn').onclick=doSave;
+$('#settingsBtn').onclick=()=>{const c=cfg();$('#gOwner').value=c.owner||'';$('#gRepo').value=c.repo||'';$('#gBranch').value=c.branch;$('#gToken').value=c.token||'';$('#dlg').showModal();};
+$('#gCancel').onclick=()=>$('#dlg').close();
+$('#gSave').onclick=()=>{
+  try{localStorage.setItem(CFG_KEY,JSON.stringify({owner:$('#gOwner').value.trim(),repo:$('#gRepo').value.trim(),branch:$('#gBranch').value.trim()||'main',token:$('#gToken').value.trim()}));}catch(e){}
+  $('#dlg').close();if(!$('#files').classList.contains('hide'))listFiles();
+};
+
 /* ---------- sample data ---------- */
 $('#sample').onclick=()=>{
   const reg=['North','South','East','West'],cat=['Hardware','Software','Services','Support'];let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
@@ -295,7 +398,7 @@ $('#sample').onclick=()=>{
   for(let i=0;i<320;i++){const d=new Date(2025,0,1+Math.floor(i*1.1)),u=1+Math.floor(rnd()*30),p=+(20+rnd()*180).toFixed(2),ds=Math.floor(rnd()*4)*5;
     rows.push([d.toISOString().slice(0,10),reg[Math.floor(rnd()*4)],cat[Math.floor(rnd()*4)],u,p,+(u*p*(1-ds/100)).toFixed(2),ds]);}
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Sales');
-  S.wb=wb;S.name='sample-sales.xlsx';openSheet('Sales');
+  S.wb=wb;S.name='sample-sales.xlsx';S.src='sample';openSheet('Sales');afterLoad();
 };
 </script>
 </body>
