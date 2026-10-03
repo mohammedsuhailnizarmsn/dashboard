@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheetlens – CSV & Excel analytics dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6f8;--panel:#fff;--ink:#141a22;--muted:#5d6877;--line:#dde2e8;--accent:#0b7f86;--accent-ink:#fff;--warn:#b4560a}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f141a;--panel:#171e27;--ink:#e8edf3;--muted:#93a0b0;--line:#2a3441;--accent:#3fc1c9;--accent-ink:#06282b;--warn:#f0a35e}}
+:root[data-theme=dark]{--bg:#0f141a;--panel:#171e27;--ink:#e8edf3;--muted:#93a0b0;--line:#2a3441;--accent:#3fc1c9;--accent-ink:#06282b;--warn:#f0a35e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Schibsted Grotesk",system-ui,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 28px;border-bottom:1px solid var(--line);background:var(--panel)}
+h1{font-size:20px;margin:0;letter-spacing:-.01em}
+h2{font-size:15px;margin:0 0 10px}
+.sub{color:var(--muted);font-size:13px}
+main{max-width:1280px;margin:0 auto;padding:24px 28px 60px}
+button,select,input{font:inherit;color:inherit}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:6px;padding:8px 14px;cursor:pointer;font-weight:500}
+.btn.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#drop{border:2px dashed var(--line);border-radius:10px;padding:56px 20px;text-align:center;background:var(--panel);transition:border-color .15s}
+#drop.over{border-color:var(--accent)}
+#drop p{margin:6px 0 16px}
+#drop .big{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.bar{justify-content:space-between;margin-bottom:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.kpi b{display:block;font-size:26px;letter-spacing:-.02em;line-height:1.2}
+.kpi span{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.card.wide{grid-column:1/-1}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.ctl label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:2px}
+select,input[type=search]{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;max-width:190px}
+.cv{position:relative;height:300px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+th{color:var(--muted);font-weight:500}
+th.s{cursor:pointer;user-select:none}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.tag{font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.pg{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;color:var(--muted);font-size:13px}
+.miss{display:inline-block;height:6px;background:var(--warn);border-radius:3px;vertical-align:middle;margin-right:6px}
+#err{color:var(--warn);margin-top:12px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Sheetlens</h1><div class="sub">Drop a CSV or Excel file and get an instant dashboard. Data stays in your browser.</div></div>
+  <button class="btn alt" id="theme" aria-label="Toggle dark mode">Toggle theme</button>
+</header>
+<main>
+  <section id="drop">
+    <div class="big">Drop a CSV or Excel file here</div>
+    <p class="sub">Supports .csv, .tsv, .xlsx, .xls</p>
+    <div class="row" style="justify-content:center">
+      <button class="btn" id="pick">Choose file</button>
+      <button class="btn alt" id="sample">Try sample data</button>
+    </div>
+    <input type="file" id="file" accept=".csv,.tsv,.xlsx,.xls,.xlsm" class="hide">
+    <div id="err" role="alert"></div>
+  </section>
+
+  <section id="dash" class="hide">
+    <div class="row bar">
+      <div><b id="fname"></b> <span class="sub" id="fmeta"></span></div>
+      <div class="row">
+        <label class="sub hide" id="shwrap">Sheet <select id="sheet"></select></label>
+        <button class="btn alt" id="reset">Load another file</button>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid">
+      <div class="card wide">
+        <h2>Chart builder</h2>
+        <div class="ctl">
+          <label>Group by<select id="bx"></select></label>
+          <label>Measure<select id="by"></select></label>
+          <label>Aggregate<select id="bag"><option value="sum">Sum</option><option value="avg">Average</option><option value="count">Count</option><option value="min">Min</option><option value="max">Max</option></select></label>
+          <label>Chart<select id="bt"><option value="bar">Bar</option><option value="line">Line</option><option value="doughnut">Doughnut</option></select></label>
+        </div>
+        <div class="cv"><canvas id="c1"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Distribution</h2>
+        <div class="ctl"><label>Numeric column<select id="hx"></select></label></div>
+        <div class="cv"><canvas id="c2"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Category breakdown</h2>
+        <div class="ctl"><label>Category column<select id="cx"></select></label></div>
+        <div class="cv"><canvas id="c3"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Relationship</h2>
+        <div class="ctl"><label>X<select id="sx"></select></label><label>Y<select id="sy"></select></label></div>
+        <div class="cv"><canvas id="c4"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Correlation with <span id="corrLabel"></span></h2>
+        <div class="ctl"><label>Compare against<select id="corrSel"></select></label></div>
+        <div class="cv"><canvas id="c5"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <h2>Column profile</h2>
+      <div class="scroll"><table id="prof"></table></div>
+    </div>
+    <div class="card">
+      <div class="row bar" style="margin-bottom:8px"><h2 style="margin:0">Data</h2><input type="search" id="q" placeholder="Search rows"></div>
+      <div class="scroll"><table id="tbl"></table></div>
+      <div class="pg"><span id="pinfo"></span><button class="btn alt" id="prev">Previous</button><button class="btn alt" id="next">Next</button></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const PAL=['#0b7f86','#e0892b','#5b6fd6','#c4465b','#6aa84f','#9b6dc9','#2f9fd0','#8a8f98'];
+const S={rows:[],cols:[],wb:null,name:'',view:[],page:0,sort:null};
+const charts={};
+const fmt=n=>n==null||isNaN(n)?'–':Math.abs(n)>=1e4?new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:2}).format(n):new Intl.NumberFormat('en',{maximumFractionDigits:2}).format(n);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const isNil=v=>v===null||v===undefined||v===''||(typeof v==='number'&&isNaN(v));
+const dateRe=/^\d{4}-\d{1,2}-\d{1,2}|^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/;
+const toNum=v=>typeof v==='number'?v:parseFloat(String(v).trim().replace(/[,$€£₹%\s]/g,''));
+
+/* ---------- loading ---------- */
+function load(file){
+  $('#err').textContent='';
+  const r=new FileReader();
+  r.onload=e=>{try{S.wb=XLSX.read(e.target.result,{type:'array',cellDates:true});S.name=file.name;openSheet(S.wb.SheetNames[0]);}
+    catch(x){$('#err').textContent='Could not read this file. Check that it is a valid CSV or Excel file.';}};
+  r.readAsArrayBuffer(file);
+}
+function openSheet(name){
+  const rows=XLSX.utils.sheet_to_json(S.wb.Sheets[name],{defval:null,raw:true});
+  if(!rows.length){$('#err').textContent='This sheet has no rows. Make sure the first row holds column headers.';return;}
+  S.rows=rows;buildModel();
+  const names=S.wb.SheetNames;
+  $('#shwrap').classList.toggle('hide',names.length<2);
+  $('#sheet').innerHTML=names.map(n=>`<option ${n===name?'selected':''}>${esc(n)}</option>`).join('');
+  $('#drop').classList.add('hide');$('#dash').classList.remove('hide');
+  $('#fname').textContent=S.name;
+  render();
+}
+function buildModel(){
+  const names=[...new Set(S.rows.flatMap(r=>Object.keys(r)))];
+  S.cols=names.map(n=>{
+    const vals=S.rows.map(r=>r[n]).filter(v=>!isNil(v));
+    const smp=vals.slice(0,500);let nu=0,dt=0;
+    smp.forEach(v=>{if(v instanceof Date)dt++;else if(typeof v==='number')nu++;else if(typeof v==='string'){const t=v.trim();if(t&&!isNaN(toNum(t))&&/^[-+$€£₹\d.,\s%()]+$/.test(t))nu++;else if(dateRe.test(t)&&!isNaN(Date.parse(t)))dt++;}});
+    const k=smp.length||1,uniq=new Set(vals.map(String)).size;
+    let type=nu/k>=.9?'number':dt/k>=.9?'date':(uniq<=Math.max(30,vals.length*.05)?'category':'text');
+    if(!vals.length)type='text';
+    S.rows.forEach(r=>{const v=r[n];if(isNil(v)){r[n]=null;return;}
+      if(type==='number')r[n]=toNum(v);else if(type==='date')r[n]=v instanceof Date?v:new Date(v);});
+    return {name:n,type,missing:S.rows.length-vals.length,uniq};
+  });
+}
+const cols=t=>S.cols.filter(c=>t.includes(c.type));
+const opts=(arr,sel)=>arr.map(c=>`<option ${c.name===sel?'selected':''}>${esc(c.name)}</option>`).join('');
+
+/* ---------- render ---------- */
+function render(){
+  const nums=cols(['number']),cats=cols(['category']),dts=cols(['date']),n=S.rows.length;
+  const totalMiss=S.cols.reduce((a,c)=>a+c.missing,0);
+  $('#fmeta').textContent=`${n.toLocaleString()} rows · ${S.cols.length} columns`;
+  const k=[['Rows',n.toLocaleString()],['Columns',S.cols.length],['Missing values',(100*totalMiss/(n*S.cols.length)).toFixed(1)+'%']];
+  nums.slice(0,3).forEach(c=>{const v=S.rows.map(r=>r[c.name]).filter(x=>x!=null);k.push([c.name+' (total)',fmt(v.reduce((a,b)=>a+b,0))],[c.name+' (average)',fmt(v.reduce((a,b)=>a+b,0)/(v.length||1))]);});
+  $('#kpis').innerHTML=k.slice(0,9).map(([l,v])=>`<div class="kpi"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('');
+
+  const groupable=[...dts,...cats,...cols(['text']).filter(c=>c.uniq<=n*.8)];
+  $('#bx').innerHTML=opts(groupable.length?groupable:S.cols,(dts[0]||cats[0]||{}).name);
+  $('#by').innerHTML='<option value="">(row count)</option>'+opts(nums);
+  $('#hx').innerHTML=opts(nums);
+  $('#cx').innerHTML=opts(cats.length?cats:S.cols.filter(c=>c.type!=='number'),(cats[0]||{}).name);
+  $('#sx').innerHTML=opts(nums,(nums[0]||{}).name);
+  $('#sy').innerHTML=opts(nums,(nums[1]||nums[0]||{}).name);
+  $('#corrSel').innerHTML=opts(nums,(nums[0]||{}).name);
+  if(!$('#by').value&&nums[0])$('#by').value=nums[0].name;
+  ['c1','c2','c3','c4','c5'].forEach(()=>{});
+  drawAll();
+  profile();S.view=S.rows;S.page=0;S.sort=null;$('#q').value='';table();
+}
+function drawAll(){builder();hist();breakdown();scatter();corr();}
+function mk(id,cfg){
+  const st=getComputedStyle(document.documentElement);
+  Chart.defaults.color=st.getPropertyValue('--muted').trim();
+  Chart.defaults.borderColor=st.getPropertyValue('--line').trim();
+  Chart.defaults.font.family='"Schibsted Grotesk",system-ui,sans-serif';
+  charts[id]?.destroy();
+  cfg.options=Object.assign({responsive:true,maintainAspectRatio:false},cfg.options||{});
+  charts[id]=new Chart($('#'+id),cfg);
+}
+function empty(id,msg){charts[id]?.destroy();const c=$('#'+id),x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);x.fillStyle=getComputedStyle(document.body).color;x.font='14px sans-serif';x.fillText(msg,12,28);}
+const colOf=n=>S.cols.find(c=>c.name===n);
+
+function builder(){
+  const xn=$('#bx').value,yn=$('#by').value,ag=yn?$('#bag').value:'count',type=$('#bt').value,xc=colOf(xn);
+  if(!xc)return empty('c1','No columns to group by.');
+  const dates=xc.type==='date';
+  let key=v=>String(v);
+  if(dates){const ds=S.rows.map(r=>r[xn]).filter(Boolean),span=(Math.max(...ds)-Math.min(...ds))/864e5;
+    key=v=>{const i=v.toISOString();return span>120?i.slice(0,7):i.slice(0,10);};}
+  const g=new Map();
+  S.rows.forEach(r=>{const x=r[xn];if(x==null)return;const k=key(x),y=yn?r[yn]:1;if(yn&&y==null)return;
+    (g.get(k)||g.set(k,[]).get(k)).push(y);});
+  let data=[...g].map(([k,a])=>[k,ag==='count'?a.length:ag==='sum'?a.reduce((p,q)=>p+q,0):ag==='avg'?a.reduce((p,q)=>p+q,0)/a.length:ag==='min'?Math.min(...a):Math.max(...a)]);
+  if(dates)data.sort((a,b)=>a[0]<b[0]?-1:1);else{data.sort((a,b)=>b[1]-a[1]);data=data.slice(0,type==='doughnut'?8:20);}
+  const label=(yn?ag+' of '+yn:'Row count');
+  mk('c1',{type,data:{labels:data.map(d=>d[0]),datasets:[{label,data:data.map(d=>d[1]),backgroundColor:type==='doughnut'?PAL:PAL[0]+'cc',borderColor:PAL[0],borderWidth:type==='line'?2:0,tension:.25,pointRadius:type==='line'?2:0,fill:false}]},
+    options:{plugins:{legend:{display:type==='doughnut'}},scales:type==='doughnut'?{}:{y:{beginAtZero:true}}}});
+}
+function hist(){
+  const n=$('#hx').value;if(!n)return empty('c2','No numeric columns found.');
+  const v=S.rows.map(r=>r[n]).filter(x=>x!=null);if(!v.length)return empty('c2','No data.');
+  const mn=Math.min(...v),mx=Math.max(...v),b=Math.min(20,Math.max(5,Math.ceil(Math.sqrt(v.length)))),w=(mx-mn)/b||1;
+  const cnt=Array(b).fill(0);v.forEach(x=>cnt[Math.min(b-1,Math.floor((x-mn)/w))]++);
+  mk('c2',{type:'bar',data:{labels:cnt.map((_,i)=>fmt(mn+i*w)+'–'+fmt(mn+(i+1)*w)),datasets:[{label:'Rows',data:cnt,backgroundColor:PAL[2]+'cc',barPercentage:1,categoryPercentage:.95}]},options:{plugins:{legend:{display:false}}}});
+}
+function breakdown(){
+  const n=$('#cx').value;if(!n)return empty('c3','No category columns found.');
+  const m={};S.rows.forEach(r=>{const v=r[n];if(v!=null){const k=v instanceof Date?v.toISOString().slice(0,10):String(v);m[k]=(m[k]||0)+1;}});
+  let e=Object.entries(m).sort((a,b)=>b[1]-a[1]);const top=e.slice(0,7),rest=e.slice(7).reduce((a,b)=>a+b[1],0);
+  if(rest)top.push(['Other',rest]);
+  mk('c3',{type:'doughnut',data:{labels:top.map(d=>d[0]),datasets:[{data:top.map(d=>d[1]),backgroundColor:PAL,borderWidth:0}]},options:{plugins:{legend:{position:'right'}}}});
+}
+function scatter(){
+  const x=$('#sx').value,y=$('#sy').value;if(!x||!y)return empty('c4','Needs two numeric columns.');
+  const pts=S.rows.filter(r=>r[x]!=null&&r[y]!=null).slice(0,3000).map(r=>({x:r[x],y:r[y]}));
+  mk('c4',{type:'scatter',data:{datasets:[{label:`${y} vs ${x}`,data:pts,backgroundColor:PAL[1]+'99',pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:x}},y:{title:{display:true,text:y}}}}});
+}
+function pearson(a,b){const p=S.rows.filter(r=>r[a]!=null&&r[b]!=null);if(p.length<3)return NaN;
+  const xs=p.map(r=>r[a]),ys=p.map(r=>r[b]),mx=xs.reduce((s,v)=>s+v,0)/xs.length,my=ys.reduce((s,v)=>s+v,0)/ys.length;
+  let nu=0,dx=0,dy=0;xs.forEach((v,i)=>{nu+=(v-mx)*(ys[i]-my);dx+=(v-mx)**2;dy+=(ys[i]-my)**2;});return nu/Math.sqrt(dx*dy);}
+function corr(){
+  const t=$('#corrSel').value;$('#corrLabel').textContent=t||'…';
+  const o=cols(['number']).filter(c=>c.name!==t).map(c=>[c.name,pearson(t,c.name)]).filter(d=>!isNaN(d[1])).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,12);
+  if(!o.length)return empty('c5','Needs at least two numeric columns.');
+  mk('c5',{type:'bar',data:{labels:o.map(d=>d[0]),datasets:[{data:o.map(d=>+d[1].toFixed(3)),backgroundColor:o.map(d=>d[1]>=0?PAL[0]:PAL[3])}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:-1,max:1}}}});
+}
+
+/* ---------- profile & table ---------- */
+function profile(){
+  const n=S.rows.length;
+  $('#prof').innerHTML='<tr><th>Column</th><th>Type</th><th>Missing</th><th>Unique</th><th>Min</th><th>Median</th><th>Mean</th><th>Max</th></tr>'+S.cols.map(c=>{
+    let st=['','','',''];
+    if(c.type==='number'){const v=S.rows.map(r=>r[c.name]).filter(x=>x!=null).sort((a,b)=>a-b);if(v.length)st=[v[0],v[v.length>>1],v.reduce((a,b)=>a+b,0)/v.length,v[v.length-1]].map(fmt);}
+    else if(c.type==='date'){const v=S.rows.map(r=>r[c.name]).filter(Boolean).sort((a,b)=>a-b);if(v.length)st=[v[0].toISOString().slice(0,10),'','',v[v.length-1].toISOString().slice(0,10)];}
+    const pct=100*c.missing/n;
+    return `<tr><td>${esc(c.name)}</td><td><span class="tag">${c.type}</span></td><td><span class="miss" style="width:${Math.max(2,pct*.6)}px"></span>${pct.toFixed(1)}%</td><td class="n">${c.uniq.toLocaleString()}</td><td class="n">${esc(st[0])}</td><td class="n">${esc(st[1])}</td><td class="n">${esc(st[2])}</td><td class="n">${esc(st[3])}</td></tr>`;}).join('');
+}
+const PS=15;
+const cell=v=>v==null?'':v instanceof Date?v.toISOString().slice(0,10):typeof v==='number'?fmt(v):v;
+function table(){
+  const pages=Math.max(1,Math.ceil(S.view.length/PS)),s=S.page*PS;
+  $('#tbl').innerHTML='<tr>'+S.cols.map(c=>`<th class="s" data-c="${esc(c.name)}">${esc(c.name)}${S.sort&&S.sort[0]===c.name?(S.sort[1]>0?' ▲':' ▼'):''}</th>`).join('')+'</tr>'+
+    S.view.slice(s,s+PS).map(r=>'<tr>'+S.cols.map(c=>`<td class="${c.type==='number'?'n':''}">${esc(cell(r[c.name]))}</td>`).join('')+'</tr>').join('');
+  $('#pinfo').textContent=`Page ${S.page+1} of ${pages} · ${S.view.length.toLocaleString()} rows`;
+  $('#prev').disabled=S.page<=0;$('#next').disabled=S.page>=pages-1;
+}
+
+/* ---------- events ---------- */
+$('#pick').onclick=()=>$('#file').click();
+$('#file').onchange=e=>e.target.files[0]&&load(e.target.files[0]);
+const dz=$('#drop');
+['dragenter','dragover'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add('over');}));
+['dragleave','drop'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove('over');}));
+dz.addEventListener('drop',e=>e.dataTransfer.files[0]&&load(e.dataTransfer.files[0]));
+$('#reset').onclick=()=>{$('#dash').classList.add('hide');$('#drop').classList.remove('hide');$('#file').value='';};
+$('#sheet').onchange=e=>openSheet(e.target.value);
+['bx','by','bag','bt'].forEach(i=>$('#'+i).onchange=builder);
+$('#hx').onchange=hist;$('#cx').onchange=breakdown;$('#sx').onchange=scatter;$('#sy').onchange=scatter;$('#corrSel').onchange=corr;
+$('#q').oninput=e=>{const q=e.target.value.toLowerCase();S.view=q?S.rows.filter(r=>S.cols.some(c=>String(cell(r[c.name])).toLowerCase().includes(q))):S.rows;S.page=0;table();};
+$('#prev').onclick=()=>{S.page--;table();};$('#next').onclick=()=>{S.page++;table();};
+$('#tbl').onclick=e=>{const th=e.target.closest('th.s');if(!th)return;const c=th.dataset.c,d=S.sort&&S.sort[0]===c?-S.sort[1]:1;S.sort=[c,d];
+  S.view=[...S.view].sort((a,b)=>{const x=a[c],y=b[c];if(x==null)return 1;if(y==null)return -1;return(x>y?1:x<y?-1:0)*d;});S.page=0;table();};
+$('#theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark';if(S.rows.length&&!$('#dash').classList.contains('hide'))drawAll();};
+
+/* ---------- sample data ---------- */
+$('#sample').onclick=()=>{
+  const reg=['North','South','East','West'],cat=['Hardware','Software','Services','Support'];let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const rows=[['Order date','Region','Category','Units','Unit price','Revenue','Discount %']];
+  for(let i=0;i<320;i++){const d=new Date(2025,0,1+Math.floor(i*1.1)),u=1+Math.floor(rnd()*30),p=+(20+rnd()*180).toFixed(2),ds=Math.floor(rnd()*4)*5;
+    rows.push([d.toISOString().slice(0,10),reg[Math.floor(rnd()*4)],cat[Math.floor(rnd()*4)],u,p,+(u*p*(1-ds/100)).toFixed(2),ds]);}
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Sales');
+  S.wb=wb;S.name='sample-sales.xlsx';openSheet('Sales');
+};
+</script>
+</body>
+</html>
