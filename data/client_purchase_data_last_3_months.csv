@@ -1,0 +1,16 @@
+Client_ID,Client_Name,Purchase_Date,Product,Quantity,Unit_Price_INR,Total_Amount_INR
+C001,Acme Corp,2026-07-05,Laptop,2,85000,170000
+C002,Bright Solutions,2026-07-12,Monitor,4,18000,72000
+C003,Nova Systems,2026-07-21,Keyboard,10,2500,25000
+C004,GreenTech,2026-07-28,Laptop,1,85000,85000
+C001,Acme Corp,2026-08-03,Monitor,3,18000,54000
+C005,Vertex Ltd,2026-08-09,Printer,2,22000,44000
+C002,Bright Solutions,2026-08-17,Laptop,3,85000,255000
+C006,BlueWave Inc,2026-08-24,Keyboard,8,2500,20000
+C003,Nova Systems,2026-08-30,Monitor,5,18000,90000
+C004,GreenTech,2026-09-06,Printer,1,22000,22000
+C005,Vertex Ltd,2026-09-14,Laptop,2,85000,170000
+C001,Acme Corp,2026-09-19,Keyboard,15,2500,37500
+C006,BlueWave Inc,2026-09-23,Monitor,2,18000,36000
+C002,Bright Solutions,2026-09-27,Printer,3,22000,66000
+C003,Nova Systems,2026-09-30,Laptop,1,85000,85000
